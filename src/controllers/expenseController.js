@@ -8,6 +8,7 @@ const {
   createExpenseActivity,
   createExpenseUpdateActivity 
 } = require('../services/activityService');
+const { ensureBidirectionalFriendship } = require('../services/friendService');
 
 /**
  * Expense Controller
@@ -65,6 +66,21 @@ exports.createExpense = async (req, res, next) => {
       { path: 'createdBy', select: 'name email' }
     ]);
     
+    // Ensure bidirectional friendships exist for all participants
+    // This creates friend relationships automatically when users are added to expenses
+    const allUserIds = new Set();
+    allUserIds.add(payer.toString());
+    participantsInPaise.forEach(p => allUserIds.add(p.user.toString()));
+    
+    const userIdsArray = Array.from(allUserIds);
+    for (let i = 0; i < userIdsArray.length; i++) {
+      for (let j = i + 1; j < userIdsArray.length; j++) {
+        ensureBidirectionalFriendship(userIdsArray[i], userIdsArray[j]).catch(err => {
+          console.error('Failed to create friendship:', err);
+        });
+      }
+    }
+    
     // Create activity for this expense (async, non-blocking)
     createExpenseActivity(expense, req.user._id).catch(err => {
       console.error('Failed to create expense activity:', err);
@@ -99,28 +115,42 @@ exports.createExpense = async (req, res, next) => {
 /**
  * Get all expenses (non-deleted) for the current user
  * GET /api/expenses
- * Query params: page, limit (for future pagination)
+ * Query params: 
+ * - page, limit (for future pagination)
+ * - includeDeleted: true/false (whether to include soft-deleted expenses)
  */
 exports.getExpenses = async (req, res, next) => {
   try {
     const userId = req.user._id;
+    const includeDeleted = req.query.includeDeleted === 'true';
     
-    // Find all non-deleted expenses where user is either payer or participant
-    const expenses = await Expense.findActive({
+    // Build query
+    const query = {
       $or: [
         { payer: userId },
         { 'participants.user': userId }
       ]
-    })
-      .populate('payer', 'name email')
-      .populate('participants.user', 'name email')
-      .populate('createdBy', 'name email')
-      .sort({ createdAt: -1 })
-      .limit(50); // Limit to 50 for now, add pagination later
+    };
+    
+    // Find expenses - use findActive if not including deleted, otherwise find all
+    const expenses = includeDeleted 
+      ? await Expense.find(query)
+          .populate('payer', 'name email')
+          .populate('participants.user', 'name email')
+          .populate('createdBy', 'name email')
+          .sort({ createdAt: -1 })
+          .limit(50)
+      : await Expense.findActive(query)
+          .populate('payer', 'name email')
+          .populate('participants.user', 'name email')
+          .populate('createdBy', 'name email')
+          .sort({ createdAt: -1 })
+          .limit(50);
     
     // Format response with rupees
     const formattedExpenses = expenses.map(expense => ({
       id: expense._id,
+      _id: expense._id, // Include both for compatibility
       title: expense.title,
       amount: expense.amount,
       amountInRupees: expense.getAmountInRupees(),
@@ -133,6 +163,7 @@ exports.getExpenses = async (req, res, next) => {
       })),
       splitMethod: expense.splitMethod,
       createdBy: expense.createdBy,
+      isDeleted: expense.isDeleted || false,
       createdAt: expense.createdAt,
       updatedAt: expense.updatedAt
     }));

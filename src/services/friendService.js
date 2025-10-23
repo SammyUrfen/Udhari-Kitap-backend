@@ -198,10 +198,59 @@ const getFriendById = async (userId, friendshipId) => {
   return friendship;
 };
 
+/**
+ * Ensure bidirectional friendship exists between two users
+ * If either direction doesn't exist, create it
+ * 
+ * @param {string} userId1 - First user ID
+ * @param {string} userId2 - Second user ID
+ * @returns {Promise<void>}
+ */
+const ensureBidirectionalFriendship = async (userId1, userId2) => {
+  const user1Str = userId1.toString();
+  const user2Str = userId2.toString();
+  
+  // Don't create friendship if it's the same user
+  if (user1Str === user2Str) {
+    return;
+  }
+  
+  // Check if user1 -> user2 friendship exists
+  const friendship1to2 = await Friend.friendshipExists(user1Str, user2Str);
+  if (!friendship1to2) {
+    // Get user2's details for the nickname
+    const user2 = await User.findById(user2Str);
+    if (user2) {
+      const newFriendship = new Friend({
+        user: user1Str,
+        friend: user2Str,
+        nickname: user2.name
+      });
+      await newFriendship.save();
+    }
+  }
+  
+  // Check if user2 -> user1 friendship exists
+  const friendship2to1 = await Friend.friendshipExists(user2Str, user1Str);
+  if (!friendship2to1) {
+    // Get user1's details for the nickname
+    const user1 = await User.findById(user1Str);
+    if (user1) {
+      const newFriendship = new Friend({
+        user: user2Str,
+        friend: user1Str,
+        nickname: user1.name
+      });
+      await newFriendship.save();
+    }
+  }
+};
+
 module.exports = {
   addFriend,
   getFriendsWithBalances,
   updateFriendNickname,
   removeFriend,
-  getFriendById
+  getFriendById,
+  ensureBidirectionalFriendship
 };
