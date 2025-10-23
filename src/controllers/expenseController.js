@@ -266,11 +266,16 @@ exports.deleteExpense = async (req, res, next) => {
       });
     }
     
-    // Check if user is the creator
-    if (expense.createdBy.toString() !== req.user._id.toString()) {
+    // Check if user is a participant or the payer (anyone involved can delete)
+    const userId = req.user._id.toString();
+    const payerId = expense.payer.toString();
+    const isParticipant = expense.participants.some(p => p.user.toString() === userId);
+    const isPayer = payerId === userId;
+    
+    if (!isParticipant && !isPayer) {
       return res.status(403).json({
         error: 'Permission denied',
-        message: 'Only the creator can delete this expense'
+        message: 'Only participants can delete this expense'
       });
     }
     
