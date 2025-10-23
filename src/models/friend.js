@@ -92,7 +92,7 @@ friendSchema.statics.getFriendsForUser = async function(userId, options = {}) {
   const { limit = 100, skip = 0 } = options;
   
   return this.find({ user: userId })
-    .populate('friend', 'name email')
+    .populate('friend', 'name email profilePicture')
     .sort({ createdAt: -1 })
     .limit(limit)
     .skip(skip);

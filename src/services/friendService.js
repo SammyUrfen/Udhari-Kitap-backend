@@ -58,7 +58,7 @@ const addFriend = async (userId, friendEmail, nickname = null) => {
   });
   
   await friendship.save();
-  await friendship.populate('friend', 'name email');
+  await friendship.populate('friend', 'name email profilePicture');
   
   return {
     success: true,
@@ -101,7 +101,8 @@ const getFriendsWithBalances = async (userId, options = {}) => {
         friend: {
           id: friendship.friend._id,
           name: friendship.friend.name,
-          email: friendship.friend.email
+          email: friendship.friend.email,
+          profilePicture: friendship.friend.profilePicture
         },
         nickname: friendship.nickname,
         balance: {
@@ -141,7 +142,7 @@ const updateFriendNickname = async (userId, friendshipId, nickname) => {
   friendship.nickname = nickname;
   friendship.updatedAt = new Date();
   await friendship.save();
-  await friendship.populate('friend', 'name email');
+  await friendship.populate('friend', 'name email profilePicture');
   
   return friendship;
 };
@@ -189,7 +190,7 @@ const removeFriend = async (userId, friendshipId) => {
  */
 const getFriendById = async (userId, friendshipId) => {
   const friendship = await Friend.findOne({ _id: friendshipId, user: userId })
-    .populate('friend', 'name email');
+    .populate('friend', 'name email profilePicture');
   
   if (!friendship) {
     throw new Error('Friendship not found');
