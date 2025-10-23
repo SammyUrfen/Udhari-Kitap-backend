@@ -97,14 +97,21 @@ exports.createExpense = async (req, res, next) => {
 };
 
 /**
- * Get all expenses (non-deleted)
+ * Get all expenses (non-deleted) for the current user
  * GET /api/expenses
  * Query params: page, limit (for future pagination)
  */
 exports.getExpenses = async (req, res, next) => {
   try {
-    // Find all non-deleted expenses
-    const expenses = await Expense.findActive()
+    const userId = req.user._id;
+    
+    // Find all non-deleted expenses where user is either payer or participant
+    const expenses = await Expense.findActive({
+      $or: [
+        { payer: userId },
+        { 'participants.user': userId }
+      ]
+    })
       .populate('payer', 'name email')
       .populate('participants.user', 'name email')
       .populate('createdBy', 'name email')
