@@ -11,6 +11,7 @@ const mongoose = require('mongoose');
  * - EXPENSE_CREATED: When a new expense is created
  * - EXPENSE_UPDATED: When an expense is modified
  * - EXPENSE_DELETED: When an expense is soft-deleted
+ * - EXPENSE_RESTORED: When a deleted expense is restored
  * - TRANSACTION_CREATED: When a payment/settlement is made
  * - USER_ADDED: When a user is added to an expense
  */
@@ -24,6 +25,7 @@ const activitySchema = new mongoose.Schema({
       'EXPENSE_CREATED',
       'EXPENSE_UPDATED', 
       'EXPENSE_DELETED',
+      'EXPENSE_RESTORED',
       'TRANSACTION_CREATED',
       'USER_ADDED'
     ],
