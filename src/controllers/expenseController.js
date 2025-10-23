@@ -7,7 +7,8 @@ const {
 const { 
   createExpenseActivity,
   createExpenseUpdateActivity,
-  createExpenseDeleteActivity
+  createExpenseDeleteActivity,
+  createExpenseRestoreActivity
 } = require('../services/activityService');
 const { ensureBidirectionalFriendship } = require('../services/friendService');
 
@@ -360,6 +361,11 @@ exports.restoreExpense = async (req, res, next) => {
     expense.deletedReason = undefined;
     
     await expense.save();
+    
+    // Create activity for this restoration (async, non-blocking)
+    createExpenseRestoreActivity(expense, req.user._id).catch(err => {
+      console.error('Failed to create expense restore activity:', err);
+    });
     
     res.json({
       success: true,

@@ -181,6 +181,48 @@ const createExpenseDeleteActivity = async (expense, actorId) => {
 };
 
 /**
+ * Create an activity when an expense is restored
+ * 
+ * @param {Object} expense - Restored expense document
+ * @param {string} actorId - User who restored the expense
+ * @returns {Promise<Activity>}
+ */
+const createExpenseRestoreActivity = async (expense, actorId) => {
+  try {
+    const targets = new Set();
+    
+    const payerId = expense.payer._id ? expense.payer._id.toString() : expense.payer.toString();
+    targets.add(payerId);
+    
+    expense.participants.forEach(p => {
+      const userId = p.user._id ? p.user._id.toString() : p.user.toString();
+      targets.add(userId);
+    });
+    
+    const activity = new Activity({
+      type: 'EXPENSE_RESTORED',
+      actor: actorId,
+      targets: Array.from(targets),
+      payload: {
+        expenseId: expense._id,
+        title: `Restored expense: ${expense.title}`,
+        description: `Expense "${expense.title}" was restored`,
+        amount: expense.amount,
+        metadata: {
+          restoredAt: new Date()
+        }
+      }
+    });
+    
+    await activity.save();
+    return activity;
+  } catch (error) {
+    console.error('Error creating expense restore activity:', error);
+    return null;
+  }
+};
+
+/**
  * Get activity feed for a user
  * 
  * @param {string} userId - User ID
@@ -279,6 +321,7 @@ module.exports = {
   createTransactionActivity,
   createExpenseUpdateActivity,
   createExpenseDeleteActivity,
+  createExpenseRestoreActivity,
   getActivityFeed,
   markActivityAsRead,
   markAllAsRead
