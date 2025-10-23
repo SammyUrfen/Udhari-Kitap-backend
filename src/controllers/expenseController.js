@@ -6,7 +6,8 @@ const {
 } = require('../services/expenseValidation');
 const { 
   createExpenseActivity,
-  createExpenseUpdateActivity 
+  createExpenseUpdateActivity,
+  createExpenseDeleteActivity
 } = require('../services/activityService');
 const { ensureBidirectionalFriendship } = require('../services/friendService');
 
@@ -281,6 +282,17 @@ exports.deleteExpense = async (req, res, next) => {
     }
     
     await expense.save();
+    
+    // Populate for activity creation
+    await expense.populate([
+      { path: 'payer', select: 'name email' },
+      { path: 'participants.user', select: 'name email' }
+    ]);
+    
+    // Create activity for this deletion (async, non-blocking)
+    createExpenseDeleteActivity(expense, req.user._id).catch(err => {
+      console.error('Failed to create expense delete activity:', err);
+    });
     
     res.json({
       success: true,
