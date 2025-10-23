@@ -4,24 +4,38 @@ const { rupeesToPaise, paiseToRupees } = require('../services/expenseValidation'
 const { createTransactionActivity } = require('../services/activityService');
 
 /**
- * Create a new transaction (settlement/payment)
- * POST /api/transactions
+ * Create a new transaction
  * 
- * Body:
+ * Request body:
  * {
- *   "to": "userId",           // Who is receiving the payment
- *   "amount": 100.50,         // Amount in rupees (will be converted to paise)
- *   "note": "Settling dinner" // Optional note
+ *   to: string (user ID who receives the payment),
+ *   amount: number (in rupees),
+ *   note: string (optional),
+ *   from: string (optional - user ID who makes the payment, defaults to authenticated user)
  * }
  * 
- * The 'from' is automatically set to the authenticated user
+ * By default, 'from' is the authenticated user (you are paying someone).
+ * If 'from' is provided and different from authenticated user, you are recording a payment you received.
  */
 exports.createTransaction = async (req, res, next) => {
   try {
-    const { to, amount, note } = req.body;
-    const from = req.user.id;
+    const { to, amount, note, from: providedFrom } = req.body;
+    const authenticatedUserId = req.user.id;
     
-    // Validation check - from user (authenticated user) is paying to another user
+    // Determine the actual 'from' user
+    // If 'from' is provided, it means we're recording a payment received (they paid us)
+    // Otherwise, we're recording a payment made (we paid them)
+    const from = providedFrom || authenticatedUserId;
+    
+    // Validation: If 'from' is provided, 'to' must be the authenticated user
+    if (providedFrom && providedFrom !== authenticatedUserId && to !== authenticatedUserId) {
+      return res.status(400).json({
+        error: 'Invalid transaction',
+        details: ['When specifying a different payer, you must be the recipient']
+      });
+    }
+    
+    // Validation check - from user is paying to another user
     const validation = await validateTransactionCreation({
       from,
       to,
@@ -38,13 +52,13 @@ exports.createTransaction = async (req, res, next) => {
     // Convert amount to paise
     const amountInPaise = rupeesToPaise(amount);
     
-    // Create transaction
+    // Create transaction (createdBy is always the authenticated user)
     const transaction = new Transaction({
       from,
       to,
       amount: amountInPaise,
       note,
-      createdBy: from
+      createdBy: authenticatedUserId
     });
     
     await transaction.save();
@@ -55,7 +69,7 @@ exports.createTransaction = async (req, res, next) => {
     await transaction.populate('createdBy', 'name email');
     
     // Create activity for this transaction (async, non-blocking)
-    createTransactionActivity(transaction, from).catch(err => {
+    createTransactionActivity(transaction, authenticatedUserId).catch(err => {
       console.error('Failed to create transaction activity:', err);
     });
     
