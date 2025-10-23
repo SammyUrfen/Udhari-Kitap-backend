@@ -10,7 +10,15 @@ const userSchema = new mongoose.Schema({
     trim: true
   },
   passwordHash: { type: String, required: true, select: false },
-  avatarUrl: { type: String },
+  avatarUrl: { type: String }, // Deprecated, keeping for backward compatibility
+  profilePicture: { 
+    type: String,
+    default: null // Stores Cloudinary secure_url
+  },
+  profilePicturePublicId: {
+    type: String,
+    default: null // Stores Cloudinary public_id for deletion
+  }
 }, { timestamps: true });
 
 // Note: email index is automatically created by unique: true
@@ -21,7 +29,8 @@ userSchema.methods.toSafeObject = function() {
     id: this._id,
     name: this.name,
     email: this.email,
-    avatarUrl: this.avatarUrl,
+    profilePicture: this.profilePicture,
+    avatarUrl: this.avatarUrl, // Keeping for backward compatibility
     createdAt: this.createdAt
   };
 };

@@ -4,7 +4,10 @@ const {
   paiseToRupees,
   validateExpenseCreation 
 } = require('../services/expenseValidation');
-const { createExpenseActivity } = require('../services/activityService');
+const { 
+  createExpenseActivity,
+  createExpenseUpdateActivity 
+} = require('../services/activityService');
 
 /**
  * Expense Controller
@@ -182,6 +185,270 @@ exports.getExpenseById = async (req, res, next) => {
         })),
         splitMethod: expense.splitMethod,
         comments: expense.comments,
+        createdBy: expense.createdBy,
+        createdAt: expense.createdAt,
+        updatedAt: expense.updatedAt
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * Soft-delete an expense
+ * DELETE /api/expenses/:id
+ * Body: { reason?: string } (optional deletion reason)
+ * 
+ * Only the creator can delete an expense
+ * Marks expense as deleted instead of removing from database
+ */
+exports.deleteExpense = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+    
+    // Find the expense
+    const expense = await Expense.findById(id);
+    
+    if (!expense) {
+      return res.status(404).json({
+        error: 'Expense not found',
+        message: `No expense found with ID ${id}`
+      });
+    }
+    
+    // Check if already deleted
+    if (expense.isDeleted) {
+      return res.status(400).json({
+        error: 'Expense already deleted',
+        message: 'This expense has already been deleted'
+      });
+    }
+    
+    // Check if user is the creator
+    if (expense.createdBy.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        error: 'Permission denied',
+        message: 'Only the creator can delete this expense'
+      });
+    }
+    
+    // Soft delete the expense
+    expense.isDeleted = true;
+    expense.deletedBy = req.user._id;
+    expense.deletedAt = new Date();
+    if (reason) {
+      expense.deletedReason = reason;
+    }
+    
+    await expense.save();
+    
+    res.json({
+      success: true,
+      message: 'Expense deleted successfully',
+      expense: {
+        id: expense._id,
+        title: expense.title,
+        isDeleted: expense.isDeleted,
+        deletedAt: expense.deletedAt,
+        deletedReason: expense.deletedReason
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * Restore a soft-deleted expense
+ * POST /api/expenses/:id/restore
+ * 
+ * Only the creator or the person who deleted it can restore
+ */
+exports.restoreExpense = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    
+    // Find the expense (including deleted ones)
+    const expense = await Expense.findById(id)
+      .populate('payer', 'name email')
+      .populate('participants.user', 'name email')
+      .populate('createdBy', 'name email');
+    
+    if (!expense) {
+      return res.status(404).json({
+        error: 'Expense not found',
+        message: `No expense found with ID ${id}`
+      });
+    }
+    
+    // Check if expense is actually deleted
+    if (!expense.isDeleted) {
+      return res.status(400).json({
+        error: 'Expense not deleted',
+        message: 'This expense is not deleted and cannot be restored'
+      });
+    }
+    
+    // Check if user has permission to restore (creator or deleter)
+    const userId = req.user._id.toString();
+    const creatorId = expense.createdBy._id.toString();
+    const deleterId = expense.deletedBy?.toString();
+    
+    if (userId !== creatorId && userId !== deleterId) {
+      return res.status(403).json({
+        error: 'Permission denied',
+        message: 'Only the creator or the person who deleted this expense can restore it'
+      });
+    }
+    
+    // Restore the expense
+    expense.isDeleted = false;
+    expense.deletedBy = undefined;
+    expense.deletedAt = undefined;
+    expense.deletedReason = undefined;
+    
+    await expense.save();
+    
+    res.json({
+      success: true,
+      message: 'Expense restored successfully',
+      expense: {
+        id: expense._id,
+        title: expense.title,
+        amount: expense.amount,
+        amountInRupees: expense.getAmountInRupees(),
+        currency: expense.currency,
+        payer: expense.payer,
+        participants: expense.participants.map(p => ({
+          user: p.user,
+          share: p.share,
+          shareInRupees: paiseToRupees(p.share)
+        })),
+        splitMethod: expense.splitMethod,
+        createdBy: expense.createdBy,
+        createdAt: expense.createdAt,
+        updatedAt: expense.updatedAt
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * Update/Edit an expense
+ * PATCH /api/expenses/:id
+ * Body: { title?, amount?, participants?, splitMethod? }
+ * 
+ * Only the creator can edit an expense
+ * Cannot edit deleted expenses
+ * All edits go through full validation
+ */
+exports.updateExpense = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { title, amount, participants, splitMethod } = req.body;
+    
+    // Find the expense
+    const expense = await Expense.findById(id);
+    
+    if (!expense) {
+      return res.status(404).json({
+        error: 'Expense not found',
+        message: `No expense found with ID ${id}`
+      });
+    }
+    
+    // Check if expense is deleted
+    if (expense.isDeleted) {
+      return res.status(400).json({
+        error: 'Cannot edit deleted expense',
+        message: 'This expense has been deleted. Please restore it first to edit.'
+      });
+    }
+    
+    // Check if user is the creator
+    if (expense.createdBy.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        error: 'Permission denied',
+        message: 'Only the creator can edit this expense'
+      });
+    }
+    
+    // Prepare update data (only update provided fields)
+    const updates = {};
+    
+    if (title !== undefined) {
+      updates.title = title;
+    }
+    
+    if (amount !== undefined) {
+      updates.amount = rupeesToPaise(amount);
+    }
+    
+    if (participants !== undefined) {
+      updates.participants = participants.map(p => ({
+        user: p.user,
+        share: rupeesToPaise(p.share)
+      }));
+    }
+    
+    if (splitMethod !== undefined) {
+      updates.splitMethod = splitMethod;
+    }
+    
+    // If amount or participants are being updated, run validation
+    if (updates.amount !== undefined || updates.participants !== undefined) {
+      const amountToValidate = updates.amount !== undefined ? updates.amount : expense.amount;
+      const participantsToValidate = updates.participants !== undefined ? updates.participants : expense.participants;
+      
+      const validation = await validateExpenseCreation({
+        amount: amountToValidate,
+        payer: expense.payer, // Payer cannot be changed
+        participants: participantsToValidate
+      });
+      
+      if (!validation.valid) {
+        return res.status(400).json({
+          error: 'Expense validation failed',
+          message: 'The updated expense data contains errors',
+          details: validation.errors
+        });
+      }
+    }
+    
+    // Apply updates
+    Object.assign(expense, updates);
+    await expense.save();
+    
+    // Populate for response
+    await expense.populate([
+      { path: 'payer', select: 'name email' },
+      { path: 'participants.user', select: 'name email' },
+      { path: 'createdBy', select: 'name email' }
+    ]);
+    
+    // Create activity notification for expense update
+    await createExpenseUpdateActivity(expense, req.user._id, updates);
+    
+    res.json({
+      success: true,
+      message: 'Expense updated successfully',
+      expense: {
+        id: expense._id,
+        title: expense.title,
+        amount: expense.amount,
+        amountInRupees: expense.getAmountInRupees(),
+        currency: expense.currency,
+        payer: expense.payer,
+        participants: expense.participants.map(p => ({
+          user: p.user,
+          share: p.share,
+          shareInRupees: paiseToRupees(p.share)
+        })),
+        splitMethod: expense.splitMethod,
         createdBy: expense.createdBy,
         createdAt: expense.createdAt,
         updatedAt: expense.updatedAt

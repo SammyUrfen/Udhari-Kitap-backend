@@ -130,12 +130,131 @@ const validateMarkAsRead = [
   validate
 ];
 
+// Expense update validation rules (similar to create, but all fields optional)
+const updateExpenseValidation = [
+  param('id')
+    .notEmpty().withMessage('Expense ID is required')
+    .isMongoId().withMessage('Invalid expense ID format'),
+  
+  body('title')
+    .optional()
+    .trim()
+    .notEmpty().withMessage('Title cannot be empty')
+    .isLength({ min: 1, max: 100 }).withMessage('Title must be between 1 and 100 characters'),
+  
+  body('amount')
+    .optional()
+    .isFloat({ min: 0.01 }).withMessage('Amount must be at least ₹0.01'),
+  
+  body('participants')
+    .optional()
+    .isArray({ min: 1 }).withMessage('At least one participant is required')
+    .custom((participants) => {
+      // Validate each participant has required fields
+      for (const participant of participants) {
+        if (!participant.user || !participant.share) {
+          throw new Error('Each participant must have user and share fields');
+        }
+        if (typeof participant.share !== 'number' || participant.share <= 0) {
+          throw new Error('Each participant share must be a positive number');
+        }
+      }
+      return true;
+    }),
+  
+  body('participants.*.user')
+    .optional()
+    .isMongoId().withMessage('Each participant user must be a valid MongoDB ID'),
+  
+  body('splitMethod')
+    .optional()
+    .isIn(['equal', 'unequal', 'percent']).withMessage('Split method must be equal, unequal, or percent'),
+  
+  validate
+];
+
+// Expense delete validation rules
+const deleteExpenseValidation = [
+  param('id')
+    .notEmpty().withMessage('Expense ID is required')
+    .isMongoId().withMessage('Invalid expense ID format'),
+  
+  body('reason')
+    .optional()
+    .trim()
+    .isLength({ max: 200 }).withMessage('Deletion reason cannot exceed 200 characters'),
+  
+  validate
+];
+
+// Expense restore validation rules
+const restoreExpenseValidation = [
+  param('id')
+    .notEmpty().withMessage('Expense ID is required')
+    .isMongoId().withMessage('Invalid expense ID format'),
+  
+  validate
+];
+
+// Expense ID validation (for getting single expense)
+const validateExpenseId = [
+  param('id')
+    .notEmpty().withMessage('Expense ID is required')
+    .isMongoId().withMessage('Invalid expense ID format'),
+  
+  validate
+];
+
+// Friend validation rules
+const validateAddFriend = [
+  body('email')
+    .trim()
+    .notEmpty().withMessage('Friend email is required')
+    .isEmail().withMessage('Invalid email format')
+    .normalizeEmail(),
+  
+  body('nickname')
+    .optional()
+    .trim()
+    .isLength({ max: 50 }).withMessage('Nickname must not exceed 50 characters'),
+  
+  validate
+];
+
+const validateUpdateNickname = [
+  param('id')
+    .notEmpty().withMessage('Friend ID is required')
+    .isMongoId().withMessage('Invalid friend ID format'),
+  
+  body('nickname')
+    .trim()
+    .notEmpty().withMessage('Nickname is required')
+    .isLength({ max: 50 }).withMessage('Nickname must not exceed 50 characters'),
+  
+  validate
+];
+
+const validateFriendId = [
+  param('id')
+    .notEmpty().withMessage('Friend ID is required')
+    .isMongoId().withMessage('Invalid friend ID format'),
+  
+  validate
+];
+
 module.exports = {
   registerValidation,
   loginValidation,
   emailSearchValidation,
   createExpenseValidation,
+  updateExpenseValidation,
+  deleteExpenseValidation,
+  restoreExpenseValidation,
+  validateExpenseId,
   validateCreateTransaction,
   validateGetTransactionById,
-  validateMarkAsRead
+  validateMarkAsRead,
+  validateAddFriend,
+  validateUpdateNickname,
+  validateFriendId
 };

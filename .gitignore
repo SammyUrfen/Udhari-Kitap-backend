@@ -1,14 +1,48 @@
+# Dependencies
 node_modules/
-.env
+package-lock.json
 
+# Environment variables
+.env
+.env.local
+.env.production
+
+# Logs
 logs/
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
+# Build outputs
 dist/
 build/
 
+# Uploaded files
+uploads/
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.webp
+
+# Testing
+coverage/
+.nyc_output/
+test-*.js
+
+# OS files
 .DS_Store
 Thumbs.db
+
+# IDE files
 .vscode/
 .idea/
+*.swp
+*.swo
+*~
 
+# Temporary files
+tmp/
+temp/
+*.tmp

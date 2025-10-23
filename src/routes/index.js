@@ -8,6 +8,7 @@ const expenseRoutes = require('./expenses');
 const balanceRoutes = require('./balances');
 const transactionRoutes = require('./transactions');
 const activityRoutes = require('./activities');
+const friendRoutes = require('./friends');
 
 router.get('/health', health.getHealth);
 router.use('/auth', authRoutes);
@@ -16,5 +17,6 @@ router.use('/expenses', expenseRoutes);
 router.use('/balances', balanceRoutes);
 router.use('/transactions', transactionRoutes);
 router.use('/activities', activityRoutes);
+router.use('/friends', friendRoutes);
 
 module.exports = router;
