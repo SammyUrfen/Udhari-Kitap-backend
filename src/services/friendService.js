@@ -1,6 +1,7 @@
 const Friend = require('../models/friend');
 const User = require('../models/user');
 const { calculatePairwiseBalance } = require('./balanceCalculation');
+const { createFriendAddedActivity } = require('./activityService');
 
 /**
  * Friend Service
@@ -59,6 +60,21 @@ const addFriend = async (userId, friendEmail, nickname = null) => {
   
   await friendship.save();
   await friendship.populate('friend', 'name email profilePicture');
+  
+  // Get current user details for activity
+  const currentUser = await User.findById(userId);
+  
+  // Create activity (async, non-blocking)
+  if (currentUser) {
+    createFriendAddedActivity(
+      userId,
+      friendId,
+      { name: currentUser.name, email: currentUser.email },
+      { name: friendUser.name, email: friendUser.email }
+    ).catch(err => {
+      console.error('Failed to create friend added activity:', err);
+    });
+  }
   
   return {
     success: true,

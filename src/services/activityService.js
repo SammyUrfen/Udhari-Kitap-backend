@@ -297,6 +297,62 @@ const markActivityAsRead = async (activityId, userId) => {
 };
 
 /**
+ * Create an activity when a friend is added
+ * 
+ * @param {Object} friendData - Friend data with user and friend details
+ * @param {string} userId - User who added the friend
+ * @param {string} friendId - User who was added as friend
+ * @param {Object} userDetails - User details (name, email)
+ * @param {Object} friendDetails - Friend details (name, email)
+ * @returns {Promise<Activity>}
+ */
+const createFriendAddedActivity = async (userId, friendId, userDetails, friendDetails) => {
+  try {
+    // Create activity for the person who was added (they see "X added you")
+    const activityForAdded = new Activity({
+      type: 'FRIEND_ADDED_YOU',
+      actor: userId,
+      targets: [friendId],
+      payload: {
+        title: `${userDetails.name} added you as a friend`,
+        description: `You are now friends with ${userDetails.name}`,
+        metadata: {
+          friendId: userId,
+          friendName: userDetails.name,
+          friendEmail: userDetails.email
+        }
+      }
+    });
+    
+    // Create activity for the person who added (they see "You added X")
+    const activityForAdder = new Activity({
+      type: 'YOU_ADDED_FRIEND',
+      actor: userId,
+      targets: [userId],
+      payload: {
+        title: `You added ${friendDetails.name} as a friend`,
+        description: `${friendDetails.name} is now your friend`,
+        metadata: {
+          friendId: friendId,
+          friendName: friendDetails.name,
+          friendEmail: friendDetails.email
+        }
+      }
+    });
+    
+    await Promise.all([
+      activityForAdded.save(),
+      activityForAdder.save()
+    ]);
+    
+    return { activityForAdded, activityForAdder };
+  } catch (error) {
+    console.error('Error creating friend added activity:', error);
+    return null;
+  }
+};
+
+/**
  * Mark all activities as read for a user
  * 
  * @param {string} userId - User ID
@@ -322,6 +378,7 @@ module.exports = {
   createExpenseUpdateActivity,
   createExpenseDeleteActivity,
   createExpenseRestoreActivity,
+  createFriendAddedActivity,
   getActivityFeed,
   markActivityAsRead,
   markAllAsRead
