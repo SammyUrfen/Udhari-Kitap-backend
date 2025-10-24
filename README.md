@@ -1,6 +1,12 @@
 # 🧾 Udhari-Kitap Backend
 
 A backend server for **Udhari Kitap**, a simple and reliable web app to track shared expenses and settlements between friends — inspired by Splitwise.
+---
+
+## 🔗 Links
+
+- **Live Demo**: [udhari-kitap.netlify.app](https://udhari-kitap.netlify.app)
+- **Frontend Repository**: [github.com/SammyUrfen/Udhari-Kitap-frontend](https://github.com/SammyUrfen/Udhari-Kitap-frontend)
 
 ---
 
