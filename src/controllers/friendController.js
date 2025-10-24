@@ -54,7 +54,7 @@ exports.addFriend = async (req, res, next) => {
 exports.getFriends = async (req, res, next) => {
   try {
     const userId = req.user.id;
-    const { page = 1, limit = 100 } = req.query;
+    const { page = 1, limit = 1000 } = req.query; // Increased default to 1000 to get all friends
     
     const skip = (parseInt(page) - 1) * parseInt(limit);
     

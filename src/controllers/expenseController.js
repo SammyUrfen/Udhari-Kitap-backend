@@ -126,6 +126,9 @@ exports.getExpenses = async (req, res, next) => {
   try {
     const userId = req.user._id;
     const includeDeleted = req.query.includeDeleted === 'true';
+    const limit = parseInt(req.query.limit) || 50; // Default to 50 if not specified
+    const page = parseInt(req.query.page) || 1; // Default to page 1
+    const skip = (page - 1) * limit;
     
     // Build query
     const query = {
@@ -142,13 +145,20 @@ exports.getExpenses = async (req, res, next) => {
           .populate('participants.user', 'name email')
           .populate('createdBy', 'name email')
           .sort({ createdAt: -1 })
-          .limit(50)
+          .skip(skip)
+          .limit(limit)
       : await Expense.findActive(query)
           .populate('payer', 'name email')
           .populate('participants.user', 'name email')
           .populate('createdBy', 'name email')
           .sort({ createdAt: -1 })
-          .limit(50);
+          .skip(skip)
+          .limit(limit);
+    
+    // Get total count for pagination info
+    const totalCount = includeDeleted
+      ? await Expense.countDocuments(query)
+      : await Expense.countDocuments({ ...query, isDeleted: { $ne: true } });
     
     // Format response with rupees
     const formattedExpenses = expenses.map(expense => ({
@@ -174,6 +184,10 @@ exports.getExpenses = async (req, res, next) => {
     res.json({
       success: true,
       count: formattedExpenses.length,
+      total: totalCount,
+      page,
+      totalPages: Math.ceil(totalCount / limit),
+      hasMore: skip + formattedExpenses.length < totalCount,
       expenses: formattedExpenses
     });
   } catch (err) {
