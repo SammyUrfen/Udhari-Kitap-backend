@@ -13,6 +13,8 @@ const mongoose = require('mongoose');
  * - EXPENSE_DELETED: When an expense is soft-deleted
  * - EXPENSE_RESTORED: When a deleted expense is restored
  * - TRANSACTION_CREATED: When a payment/settlement is made
+ * - FRIEND_ADDED_YOU: When someone adds you as a friend
+ * - YOU_ADDED_FRIEND: When you add someone as a friend
  * - USER_ADDED: When a user is added to an expense
  */
 
@@ -27,6 +29,8 @@ const activitySchema = new mongoose.Schema({
       'EXPENSE_DELETED',
       'EXPENSE_RESTORED',
       'TRANSACTION_CREATED',
+      'FRIEND_ADDED_YOU',
+      'YOU_ADDED_FRIEND',
       'USER_ADDED'
     ],
     index: true

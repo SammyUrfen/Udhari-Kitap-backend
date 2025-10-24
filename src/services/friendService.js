@@ -64,16 +64,19 @@ const addFriend = async (userId, friendEmail, nickname = null) => {
   // Get current user details for activity
   const currentUser = await User.findById(userId);
   
-  // Create activity (async, non-blocking)
-  if (currentUser) {
-    createFriendAddedActivity(
-      userId,
-      friendId,
-      { name: currentUser.name, email: currentUser.email },
-      { name: friendUser.name, email: friendUser.email }
-    ).catch(err => {
+  // Create activity for both users
+  if (currentUser && friendUser) {
+    try {
+      await createFriendAddedActivity(
+        userId,
+        friendId,
+        { name: currentUser.name, email: currentUser.email },
+        { name: friendUser.name, email: friendUser.email }
+      );
+      console.log('Friend added activities created successfully');
+    } catch (err) {
       console.error('Failed to create friend added activity:', err);
-    });
+    }
   }
   
   return {
