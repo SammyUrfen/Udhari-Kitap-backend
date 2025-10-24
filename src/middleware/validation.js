@@ -70,11 +70,11 @@ const createExpenseValidation = [
     .custom((participants) => {
       // Validate each participant has required fields
       for (const participant of participants) {
-        if (!participant.user || !participant.share) {
+        if (!participant.user || participant.share === undefined || participant.share === null) {
           throw new Error('Each participant must have user and share fields');
         }
-        if (typeof participant.share !== 'number' || participant.share <= 0) {
-          throw new Error('Each participant share must be a positive number');
+        if (typeof participant.share !== 'number' || participant.share < 0) {
+          throw new Error('Each participant share must be a non-negative number');
         }
       }
       return true;
@@ -86,7 +86,7 @@ const createExpenseValidation = [
   
   body('participants.*.share')
     .notEmpty().withMessage('Participant share is required')
-    .isFloat({ min: 0.01 }).withMessage('Participant share must be at least ₹0.01'),
+    .isFloat({ min: 0 }).withMessage('Participant share must be at least ₹0'),
   
   body('splitMethod')
     .notEmpty().withMessage('Split method is required')
@@ -152,11 +152,11 @@ const updateExpenseValidation = [
     .custom((participants) => {
       // Validate each participant has required fields
       for (const participant of participants) {
-        if (!participant.user || !participant.share) {
+        if (!participant.user || participant.share === undefined || participant.share === null) {
           throw new Error('Each participant must have user and share fields');
         }
-        if (typeof participant.share !== 'number' || participant.share <= 0) {
-          throw new Error('Each participant share must be a positive number');
+        if (typeof participant.share !== 'number' || participant.share < 0) {
+          throw new Error('Each participant share must be a non-negative number');
         }
       }
       return true;
