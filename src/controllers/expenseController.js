@@ -1,4 +1,5 @@
 const Expense = require('../models/expense');
+const Transaction = require('../models/transaction');
 const { 
   rupeesToPaise, 
   paiseToRupees,
@@ -119,13 +120,15 @@ exports.createExpense = async (req, res, next) => {
  * Get all expenses (non-deleted) for the current user
  * GET /api/expenses
  * Query params: 
- * - page, limit (for future pagination)
+ * - page, limit (for pagination)
  * - includeDeleted: true/false (whether to include soft-deleted expenses)
+ * - includeTransactions: true/false (whether to include settlement transactions)
  */
 exports.getExpenses = async (req, res, next) => {
   try {
     const userId = req.user._id;
     const includeDeleted = req.query.includeDeleted === 'true';
+    const includeTransactions = req.query.includeTransactions === 'true';
     const limit = parseInt(req.query.limit) || 50; // Default to 50 if not specified
     const page = parseInt(req.query.page) || 1; // Default to page 1
     const skip = (page - 1) * limit;
@@ -164,6 +167,7 @@ exports.getExpenses = async (req, res, next) => {
     const formattedExpenses = expenses.map(expense => ({
       id: expense._id,
       _id: expense._id, // Include both for compatibility
+      type: 'expense', // Add type identifier
       title: expense.title,
       amount: expense.amount,
       amountInRupees: expense.getAmountInRupees(),
@@ -181,14 +185,61 @@ exports.getExpenses = async (req, res, next) => {
       updatedAt: expense.updatedAt
     }));
     
+    let allItems = formattedExpenses;
+    let transactionCount = 0;
+    
+    // If including transactions, fetch and merge them
+    if (includeTransactions) {
+      const transactionQuery = {
+        $or: [
+          { from: userId },
+          { to: userId }
+        ]
+      };
+      
+      const transactions = await Transaction.find(transactionQuery)
+        .populate('from', 'name email')
+        .populate('to', 'name email')
+        .populate('createdBy', 'name email')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit);
+      
+      transactionCount = await Transaction.countDocuments(transactionQuery);
+      
+      const formattedTransactions = transactions.map(t => ({
+        id: t._id,
+        _id: t._id,
+        type: 'transaction', // Add type identifier
+        title: `Settlement with ${t.from._id.toString() === userId.toString() ? t.to.name : t.from.name}`,
+        amount: t.amount,
+        amountInRupees: paiseToRupees(t.amount),
+        currency: t.currency || 'INR',
+        from: t.from,
+        to: t.to,
+        note: t.note,
+        direction: t.from._id.toString() === userId.toString() ? 'sent' : 'received',
+        createdBy: t.createdBy,
+        createdAt: t.createdAt,
+        updatedAt: t.updatedAt || t.createdAt
+      }));
+      
+      // Merge and sort by date
+      allItems = [...formattedExpenses, ...formattedTransactions].sort((a, b) => 
+        new Date(b.createdAt) - new Date(a.createdAt)
+      );
+    }
+    
     res.json({
       success: true,
-      count: formattedExpenses.length,
-      total: totalCount,
+      count: allItems.length,
+      total: totalCount + transactionCount,
+      expenseCount: formattedExpenses.length,
+      transactionCount: includeTransactions ? transactionCount : 0,
       page,
-      totalPages: Math.ceil(totalCount / limit),
-      hasMore: skip + formattedExpenses.length < totalCount,
-      expenses: formattedExpenses
+      totalPages: Math.ceil((totalCount + transactionCount) / limit),
+      hasMore: skip + allItems.length < (totalCount + transactionCount),
+      expenses: allItems // Changed key name to 'expenses' but contains both expenses and transactions
     });
   } catch (err) {
     next(err);
