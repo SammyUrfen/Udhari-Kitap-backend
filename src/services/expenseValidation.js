@@ -99,22 +99,22 @@ const validateSharesSum = (totalAmount, participants) => {
 };
 
 /**
- * Validate that all participant shares are positive
+ * Validate that all participant shares are non-negative
  * @param {Array} participants - Array of {user: userId, share: amount}
  * @returns {Object} { valid: boolean, invalidParticipants: Array, message: string }
  */
 const validatePositiveShares = (participants) => {
-  const invalidParticipants = participants.filter(p => p.share <= 0);
+  const invalidParticipants = participants.filter(p => p.share < 0);
   
   if (invalidParticipants.length > 0) {
     return {
       valid: false,
       invalidParticipants,
-      message: 'All participant shares must be positive'
+      message: 'All participant shares must be non-negative (≥ 0)'
     };
   }
   
-  return { valid: true, invalidParticipants: [], message: 'All shares are positive' };
+  return { valid: true, invalidParticipants: [], message: 'All shares are valid' };
 };
 
 /**

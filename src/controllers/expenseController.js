@@ -43,9 +43,10 @@ exports.createExpense = async (req, res, next) => {
     });
     
     if (!validation.valid) {
+      const errorMessages = validation.errors.map(err => err.message);
       return res.status(400).json({
         error: 'Expense validation failed',
-        message: 'The expense data contains errors',
+        message: errorMessages.join('; '),
         details: validation.errors
       });
     }
@@ -477,9 +478,10 @@ exports.updateExpense = async (req, res, next) => {
       });
       
       if (!validation.valid) {
+        const errorMessages = validation.errors.map(err => err.message);
         return res.status(400).json({
           error: 'Expense validation failed',
-          message: 'The updated expense data contains errors',
+          message: errorMessages.join('; '),
           details: validation.errors
         });
       }
